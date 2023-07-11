@@ -2,7 +2,7 @@
 ## Build Bitcoin Binaries
 ##
 
-name: Atlas Tests
+name: Build Binary
 
 on:
   workflow_dispatch:
