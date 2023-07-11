@@ -11,9 +11,6 @@ on:
       - "v[0-9]+.[0-9]+" # v0.25
       - "v[0-9]+.[0-9]+.[0-9]+" # v0.25.0
 
-env:
-  BIN_DIR: /bitcoin-${{ env.GITHUB_REF_NAME }}
-
 jobs:
   build-bitcoin:
     name: Build Bitcoin
@@ -60,6 +57,7 @@ jobs:
       - name: Configure
         run: |
           export BDB_PREFIX="$(ls -d /bitcoin/depends/* | grep "linux-gnu")"
+          export BIN_DIR="/bitcoin"
           ./configure \
             CXX=clang++ \
             CC=clang \
