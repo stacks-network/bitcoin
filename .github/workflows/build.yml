@@ -1,0 +1,93 @@
+##
+## Build Bitcoin Binaries
+##
+
+name: Atlas Tests
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+" # v0.25
+      - "v[0-9]+.[0-9]+.[0-9]+" # v0.25.0
+
+env:
+  BIN_DIR: /bitcoin-${{ env.GITHUB_REF_NAME }}
+
+jobs:
+  build-bitcoin:
+    name: Build Bitcoin
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the latest code
+        id: git_checkout
+        uses: actions/checkout@v3
+
+      - name: Install Build dependencies
+        run: |
+          apt-get update && apt-get install -y \
+            autoconf \
+            automake \
+            autotools-dev \
+            bsdmainutils \
+            build-essential \
+            clang \
+            curl \
+            git \
+            libboost-dev \
+            libboost-filesystem-dev \
+            libboost-system-dev \
+            libboost-thread-dev \
+            libczmq-dev \
+            libevent-dev \
+            libminiupnpc-dev \
+            libnatpmp-dev \
+            libsqlite3-dev \
+            libssl-dev \
+            libtool \
+            pkg-config \
+            python3 \
+            wget
+
+      - name: Install BerkelyDB
+        run: |
+          make -C depends NO_BOOST=1 NO_LIBEVENT=1 NO_QT=1 NO_SQLITE=1 NO_NATPMP=1 NO_UPNP=1 NO_ZMQ=1 NO_USDT=1
+
+      - name: Run Autogen
+        run: |
+          ./autogen.sh
+
+      - name: Configure
+        run: |
+          export BDB_PREFIX="$(ls -d /bitcoin/depends/* | grep "linux-gnu")"
+          ./configure \
+            CXX=clang++ \
+            CC=clang \
+            BDB_LIBS="-L${BDB_PREFIX}/lib -ldb_cxx-4.8" \
+            BDB_CFLAGS="-I${BDB_PREFIX}/include" \
+            LDFLAGS="${BDB_LDFLAGS} -static-libstdc++" \
+            CPPFLAGS="${BDB_CPPFLAGS} -static-libstdc++" \
+            --includedir=${BIN_DIR}/include \
+            --bindir=${BIN_DIR}/bin \
+            --mandir=${BIN_DIR}/share/man/man1 \
+            --disable-gui-tests \
+            --enable-static \
+            --disable-tests \
+            --without-miniupnpc \
+            --disable-shared \
+            --with-pic \
+            --enable-cxx
+
+      - name: Make
+        run: |
+          make -j2 && make install
+
+      - name: Compress artifact
+        id: compress_artifact
+        run: zip --junk-paths  bitcoin-${{ env.GITHUB_REF_NAME }}-linux-glibc ${{ env.BIN_DIR }}
+
+      - name: Upload artifact
+        id: upload_artifact
+        uses: actions/upload-artifact@v3
+        with:
+          path: bitcoin-${{ env.GITHUB_REF_NAME }}-linux-glibc.zip
