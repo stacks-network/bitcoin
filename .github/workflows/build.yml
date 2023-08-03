@@ -6,13 +6,14 @@ name: Build Binary
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - "v[0-9]+.[0-9]+" # v0.25
-      - "v[0-9]+.[0-9]+.[0-9]+" # v0.25.0
+    inputs:
+      tag:
+        description: "Tag to build (ex: 0.20.0)"
+        required: true
 
 env:
-  BIN_DIR: "/bitcoin"
+  BIN_DIR: "/bitcoin-${{ inputs.tag }}"
+  GIT_DIR: "/bitcoin"
 
 jobs:
   build-bitcoin:
@@ -22,6 +23,9 @@ jobs:
       - name: Checkout the latest code
         id: git_checkout
         uses: actions/checkout@v3
+        with:
+          ref: v${{ inputs.tag }}
+          path: ${{ env.GIT_DIR }}
 
       - name: Extract branch name
         run: |
@@ -75,7 +79,8 @@ jobs:
 
       - name: Configure
         run: |
-          export BDB_PREFIX="$(ls -d $(pwd)/depends/* | grep "linux-gnu")"
+          export BDB_PREFIX="$(ls -d ${{ env.GIT_DIR }}/depends/* | grep "linux-gnu")"
+          echo "BDB_PREFIX: ${BDB_PREFIX}"
           ./configure \
             CXX=clang++ \
             CC=clang \
@@ -93,6 +98,26 @@ jobs:
             --disable-shared \
             --with-pic \
             --enable-cxx
+      # - name: Configure
+      #   run: |
+      #     export BDB_PREFIX="$(ls -d $(pwd)/depends/* | grep "linux-gnu")"
+      #     ./configure \
+      #       CXX=clang++ \
+      #       CC=clang \
+      #       BDB_LIBS="-L${BDB_PREFIX}/lib -ldb_cxx-4.8" \
+      #       BDB_CFLAGS="-I${BDB_PREFIX}/include" \
+      #       LDFLAGS="${BDB_LDFLAGS} -static-libstdc++" \
+      #       CPPFLAGS="${BDB_CPPFLAGS} -static-libstdc++" \
+      #       --includedir=${BIN_DIR}/include \
+      #       --bindir=${BIN_DIR}/bin \
+      #       --mandir=${BIN_DIR}/share/man/man1 \
+      #       --disable-gui-tests \
+      #       --enable-static \
+      #       --disable-tests \
+      #       --without-miniupnpc \
+      #       --disable-shared \
+      #       --with-pic \
+      #       --enable-cxx
 
       - name: Make
         run: |
@@ -103,10 +128,10 @@ jobs:
         id: compress_artifact
         run: |
           cd ${{ env.BIN_DIR }}
-          zip -r /tmp/bitcoin-${{ env.BRANCH_NAME }}-linux-glibc.zip .
+          zip -r /tmp/bitcoin-${{ inputs.tag }}-linux-glibc.zip .
 
       - name: Upload artifact
         id: upload_artifact
         uses: actions/upload-artifact@v3
         with:
-          path: /tmp/bitcoin-${{ env.BRANCH_NAME }}-linux-glibc.zip
+          path: /tmp/bitcoin-${{ inputs.tag }}-linux-glibc.zip
