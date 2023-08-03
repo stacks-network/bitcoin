@@ -56,7 +56,7 @@ jobs:
 
       - name: Configure
         run: |
-          export BDB_PREFIX="$(ls -d /bitcoin/depends/* | grep "linux-gnu")"
+          export BDB_PREFIX="$(ls -d $(pwd)/depends/* | grep "linux-gnu")"
           export BIN_DIR="/bitcoin"
           ./configure \
             CXX=clang++ \
