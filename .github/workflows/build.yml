@@ -11,6 +11,9 @@ on:
       - "v[0-9]+.[0-9]+" # v0.25
       - "v[0-9]+.[0-9]+.[0-9]+" # v0.25.0
 
+env:
+  BIN_DIR: "/bitcoin"
+
 jobs:
   build-bitcoin:
     name: Build Bitcoin
@@ -19,6 +22,22 @@ jobs:
       - name: Checkout the latest code
         id: git_checkout
         uses: actions/checkout@v3
+
+      - name: Extract branch name
+        run: |
+          event=${{ github.event_name }}
+          case ${event} in
+            pull_request|pull_request_target|pull_request_review)
+              echo "[PR]: true"
+              branch=${{ github.event.pull_request.head.ref }}
+              ;;
+            *)
+              echo "[PR]: false"
+              branch=${GITHUB_REF#refs/heads/}
+              ;;
+          esac
+          echo "Setting Branch: ${branch}"
+          echo "BRANCH_NAME=${branch}" >> $GITHUB_ENV
 
       - name: Install Build dependencies
         run: |
@@ -57,7 +76,6 @@ jobs:
       - name: Configure
         run: |
           export BDB_PREFIX="$(ls -d $(pwd)/depends/* | grep "linux-gnu")"
-          export BIN_DIR="/bitcoin"
           ./configure \
             CXX=clang++ \
             CC=clang \
@@ -83,10 +101,10 @@ jobs:
 
       - name: Compress artifact
         id: compress_artifact
-        run: zip --junk-paths  bitcoin-${{ env.GITHUB_REF_NAME }}-linux-glibc ${{ env.BIN_DIR }}
+        run: zip --junk-paths  bitcoin-${{ env.BRANCH_NAME }}-linux-glibc ${{ env.BIN_DIR }}
 
       - name: Upload artifact
         id: upload_artifact
         uses: actions/upload-artifact@v3
         with:
-          path: bitcoin-${{ env.GITHUB_REF_NAME }}-linux-glibc.zip
+          path: bitcoin-${{ env.BRANCH_NAME }}-linux-glibc.zip
