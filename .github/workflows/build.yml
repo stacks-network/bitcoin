@@ -106,14 +106,13 @@ jobs:
       - name: Compress artifact
         id: compress_artifact
         run: |
-          cd ${{ env.BIN_DIR }}
-          zip -r /tmp/bitcoin-${{ inputs.tag }}-linux-glibc.zip .
+          tar -czvf /tmp/bitcoin-${{ inputs.tag }}-linux-glibc.tar -C ${{ env.BIN_DIR }} .
 
       - name: Upload artifact
         id: upload_artifact
         uses: actions/upload-artifact@v3
         with:
-          path: /tmp/bitcoin-${{ inputs.tag }}-linux-glibc.zip
+          path: /tmp/bitcoin-${{ inputs.tag }}-linux-glibc.tar.gz
 
   create-release:
     if: inputs.tag != ''
@@ -136,7 +135,7 @@ jobs:
         with:
           output: CHECKSUMS.txt
           patterns: |
-            release/*.zip
+            release/*.tar.gz
 
       # Upload the release archives with the checksums file
       - name: Upload Release
@@ -151,5 +150,5 @@ jobs:
           prerelease: true
           fail_on_unmatched_files: true
           files: |
-            release/*.zip
+            release/*.tar.gz
             CHECKSUMS.txt
