@@ -120,7 +120,7 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     needs:
-      - build-binaries
+      - build-bitcoin
     steps:
       - name: Download Artifacts
         id: download_artifacts
