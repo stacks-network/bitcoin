@@ -101,7 +101,9 @@ jobs:
 
       - name: Compress artifact
         id: compress_artifact
-        run: zip --junk-paths  bitcoin-${{ env.BRANCH_NAME }}-linux-glibc ${{ env.BIN_DIR }}
+        run: |
+          cd ${{ env.BIN_DIR }}
+          zip -r bitcoin-${{ env.BRANCH_NAME }}-linux-glibc.zip .
 
       - name: Upload artifact
         id: upload_artifact
