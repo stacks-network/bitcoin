@@ -103,10 +103,10 @@ jobs:
         id: compress_artifact
         run: |
           cd ${{ env.BIN_DIR }}
-          zip -r bitcoin-${{ env.BRANCH_NAME }}-linux-glibc.zip .
+          zip -r /tmp/bitcoin-${{ env.BRANCH_NAME }}-linux-glibc.zip .
 
       - name: Upload artifact
         id: upload_artifact
         uses: actions/upload-artifact@v3
         with:
-          path: bitcoin-${{ env.BRANCH_NAME }}-linux-glibc.zip
+          path: /tmp/bitcoin-${{ env.BRANCH_NAME }}-linux-glibc.zip
