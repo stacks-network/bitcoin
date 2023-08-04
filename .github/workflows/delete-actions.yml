@@ -33,7 +33,7 @@ jobs:
   ## delete any action that has been completed > 2 days old
   ## - 2 day
   delete-old-actions:
-    name: Old Workflows
+    name: Delete Old Workflows
     runs-on: ubuntu-latest
     steps:
       - env:

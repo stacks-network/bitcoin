@@ -105,13 +105,13 @@ jobs:
       - name: Compress artifact
         id: compress_artifact
         run: |
-          tar -czvf /tmp/bitcoin-${{ inputs.tag }}-linux-glibc.tar.gz -C ${{ env.BIN_DIR }} .
+          tar -czvf /tmp/bitcoin-${{ inputs.tag }}-x86_64-linux-gnu.tar.gz -C ${{ env.BIN_DIR }} .
 
       - name: Upload artifact
         id: upload_artifact
         uses: actions/upload-artifact@v3
         with:
-          path: /tmp/bitcoin-${{ inputs.tag }}-linux-glibc.tar.gz
+          path: /tmp/bitcoin-${{ inputs.tag }}-x86_64-linux-gnu.tar.gz
 
   create-release:
     if: inputs.tag != ''
