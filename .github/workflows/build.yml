@@ -79,24 +79,23 @@ jobs:
       - name: Configure
         run: |
           export BDB_PREFIX="$(ls -d $(pwd)/depends/* | grep "linux-gnu")"
+          export CXXFLAGS="-O2"
           echo "BDB_PREFIX: ${BDB_PREFIX}"
           ./configure \
             CXX=clang++ \
             CC=clang \
             BDB_LIBS="-L${BDB_PREFIX}/lib -ldb_cxx-4.8" \
             BDB_CFLAGS="-I${BDB_PREFIX}/include" \
-            LDFLAGS="${BDB_LDFLAGS} -static-libstdc++" \
-            CPPFLAGS="${BDB_CPPFLAGS} -static-libstdc++" \
             --includedir=${BIN_DIR}/include \
             --bindir=${BIN_DIR}/bin \
             --mandir=${BIN_DIR}/share/man/man1 \
             --disable-gui-tests \
-            --enable-static \
             --disable-tests \
             --without-miniupnpc \
-            --disable-shared \
             --with-pic \
-            --enable-cxx
+            --enable-cxx \
+            --enable-static \
+            --disable-shared
 
       - name: Make
         run: |
@@ -106,7 +105,7 @@ jobs:
       - name: Compress artifact
         id: compress_artifact
         run: |
-          tar -czvf /tmp/bitcoin-${{ inputs.tag }}-linux-glibc.tar -C ${{ env.BIN_DIR }} .
+          tar -czvf /tmp/bitcoin-${{ inputs.tag }}-linux-glibc.tar.gz -C ${{ env.BIN_DIR }} .
 
       - name: Upload artifact
         id: upload_artifact
