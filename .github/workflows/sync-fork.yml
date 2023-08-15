@@ -16,15 +16,12 @@ jobs:
 
       - name: Sync upstream changes
         id: sync
-        uses: aormsby/Fork-Sync-With-Upstream-action@v3.4
+        uses: aormsby/Fork-Sync-With-Upstream-action@9e2e4fd0829a2fe8ca4b13693faac9230c414d51 # v3.4
         with:
           target_sync_branch: my-branch
-          # REQUIRED 'target_repo_token' exactly like this!
           target_repo_token: ${{ secrets.GH_TOKEN }}
           upstream_sync_branch: main
           upstream_sync_repo: bitcoin/bitcoin
-
-          # Set test_mode true to run tests instead of the true action!!
           test_mode: true
 
       - name: New commits found
