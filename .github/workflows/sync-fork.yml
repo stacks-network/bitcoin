@@ -1,0 +1,21 @@
+name: Sync Fork
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *" # every day at midnight
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: TobKed/github-forks-sync-action@2fb78daa46a630ff56455a63dec51ff00ba56e23 #v0.4.0
+        with:
+          github_token: ${{ secrets.GH_TOKEN }}
+          upstream_repository: bitcoin/bitcoin
+          target_repository: stacks-network/bitcoin
+          upstream_branch: master
+          target_branch: master
+          force: false
+          tags: true
+

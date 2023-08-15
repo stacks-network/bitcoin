@@ -1,0 +1,154 @@
+##
+## Build Bitcoin Binaries
+##
+
+name: Build Binary
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build (ex: 0.20.0)"
+        required: true
+
+env:
+  BIN_DIR: "/bitcoin"
+
+jobs:
+  build-bitcoin:
+    if: inputs.tag != ''
+    name: Build Bitcoin
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the latest code
+        id: git_checkout
+        uses: actions/checkout@v3
+        with:
+          ref: v${{ inputs.tag }}
+
+      - name: Extract branch name
+        run: |
+          event=${{ github.event_name }}
+          case ${event} in
+            pull_request|pull_request_target|pull_request_review)
+              echo "[PR]: true"
+              branch=${{ github.event.pull_request.head.ref }}
+              ;;
+            *)
+              echo "[PR]: false"
+              branch=${GITHUB_REF#refs/heads/}
+              ;;
+          esac
+          echo "Setting Branch: ${branch}"
+          echo "BRANCH_NAME=${branch}" >> $GITHUB_ENV
+
+      - name: Install Build dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y \
+            autoconf \
+            automake \
+            autotools-dev \
+            bsdmainutils \
+            build-essential \
+            clang \
+            curl \
+            git \
+            libboost-dev \
+            libboost-filesystem-dev \
+            libboost-system-dev \
+            libboost-thread-dev \
+            libczmq-dev \
+            libevent-dev \
+            libminiupnpc-dev \
+            libnatpmp-dev \
+            libsqlite3-dev \
+            libssl-dev \
+            libtool \
+            pkg-config \
+            python3 \
+            wget
+
+      - name: Install BerkelyDB
+        run: |
+          make -C depends NO_BOOST=1 NO_LIBEVENT=1 NO_QT=1 NO_SQLITE=1 NO_NATPMP=1 NO_UPNP=1 NO_ZMQ=1 NO_USDT=1
+
+      - name: Run Autogen
+        run: |
+          ./autogen.sh
+
+      - name: Configure
+        run: |
+          export BDB_PREFIX="$(ls -d $(pwd)/depends/* | grep "linux-gnu")"
+          export CXXFLAGS="-O2"
+          echo "BDB_PREFIX: ${BDB_PREFIX}"
+          ./configure \
+            CXX=clang++ \
+            CC=clang \
+            BDB_LIBS="-L${BDB_PREFIX}/lib -ldb_cxx-4.8" \
+            BDB_CFLAGS="-I${BDB_PREFIX}/include" \
+            --includedir=${BIN_DIR}/include \
+            --bindir=${BIN_DIR}/bin \
+            --mandir=${BIN_DIR}/share/man/man1 \
+            --disable-gui-tests \
+            --disable-tests \
+            --without-miniupnpc \
+            --with-pic \
+            --enable-cxx \
+            --enable-static \
+            --disable-shared
+
+      - name: Make
+        run: |
+          make -j2
+          sudo make install
+
+      - name: Compress artifact
+        id: compress_artifact
+        run: |
+          tar -czvf /tmp/bitcoin-${{ inputs.tag }}-x86_64-linux-gnu.tar.gz -C ${{ env.BIN_DIR }} .
+
+      - name: Upload artifact
+        id: upload_artifact
+        uses: actions/upload-artifact@v3
+        with:
+          path: /tmp/bitcoin-${{ inputs.tag }}-x86_64-linux-gnu.tar.gz
+
+  create-release:
+    if: inputs.tag != ''
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs:
+      - build-bitcoin
+    steps:
+      - name: Download Artifacts
+        id: download_artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: artifact
+          path: release
+
+      # Generate a checksums file to be added to the release page
+      - name: Generate Checksums
+        id: generate_checksum
+        uses: jmgilman/actions-generate-checksum@v1
+        with:
+          output: CHECKSUMS.txt
+          patterns: |
+            release/*.tar.gz
+
+      # Upload the release archives with the checksums file
+      - name: Upload Release
+        id: upload_release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        with:
+          name: Release ${{ github.event.inputs.tag || github.ref }}
+          tag_name: ${{ github.event.inputs.tag || github.ref }}
+          draft: false
+          prerelease: true
+          fail_on_unmatched_files: true
+          files: |
+            release/*.tar.gz
+            CHECKSUMS.txt
+
