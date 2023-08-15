@@ -18,9 +18,9 @@ jobs:
         id: sync
         uses: aormsby/Fork-Sync-With-Upstream-action@9e2e4fd0829a2fe8ca4b13693faac9230c414d51 # v3.4
         with:
-          target_sync_branch: my-branch
+          target_sync_branch: master
           target_repo_token: ${{ secrets.GH_TOKEN }}
-          upstream_sync_branch: main
+          upstream_sync_branch: master
           upstream_sync_repo: bitcoin/bitcoin
           test_mode: true
 
