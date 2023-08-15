@@ -6,16 +6,34 @@ on:
     - cron: "0 0 * * *" # every day at midnight
 
 jobs:
-  sync:
+  sync_latest_from_upstream:
     runs-on: ubuntu-latest
-    steps:
-      - uses: TobKed/github-forks-sync-action@2fb78daa46a630ff56455a63dec51ff00ba56e23 #v0.4.0
-        with:
-          github_token: ${{ secrets.GH_TOKEN }}
-          upstream_repository: bitcoin/bitcoin
-          target_repository: stacks-network/bitcoin
-          upstream_branch: master
-          target_branch: master
-          force: false
-          tags: true
+    name: Sync latest commits from upstream repo
 
+    steps:
+      - name: Checkout target repo
+        uses: actions/checkout@v3
+
+      - name: Sync upstream changes
+        id: sync
+        uses: aormsby/Fork-Sync-With-Upstream-action@v3.4
+        with:
+          target_sync_branch: my-branch
+          # REQUIRED 'target_repo_token' exactly like this!
+          target_repo_token: ${{ secrets.GH_TOKEN }}
+          upstream_sync_branch: main
+          upstream_sync_repo: bitcoin/bitcoin
+
+          # Set test_mode true to run tests instead of the true action!!
+          test_mode: true
+
+      - name: New commits found
+        if: steps.sync.outputs.has_new_commits == 'true'
+        run: echo "New commits were found to sync."
+
+      - name: No new commits
+        if: steps.sync.outputs.has_new_commits == 'false'
+        run: echo "There were no new commits."
+
+      - name: Show value of 'has_new_commits'
+        run: echo ${{ steps.sync.outputs.has_new_commits }}
