@@ -22,7 +22,7 @@ jobs:
           target_repo_token: ${{ secrets.GH_TOKEN }}
           upstream_sync_branch: master
           upstream_sync_repo: bitcoin/bitcoin
-          test_mode: true
+          test_mode: false
 
       - name: New commits found
         if: steps.sync.outputs.has_new_commits == 'true'
