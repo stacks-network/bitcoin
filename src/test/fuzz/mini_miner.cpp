@@ -7,11 +7,13 @@
 #include <test/util/txmempool.h>
 #include <test/util/mining.h>
 
-#include <node/mini_miner.h>
 #include <node/miner.h>
+#include <node/mini_miner.h>
 #include <primitives/transaction.h>
 #include <random.h>
 #include <txmempool.h>
+#include <util/check.h>
+#include <util/translation.h>
 
 #include <deque>
 #include <vector>
@@ -25,7 +27,7 @@ void initialize_miner()
     static const auto testing_setup = MakeNoLogFileContext<const TestingSetup>();
     g_setup = testing_setup.get();
     for (uint32_t i = 0; i < uint32_t{100}; ++i) {
-        g_available_coins.push_back(COutPoint{uint256::ZERO, i});
+        g_available_coins.emplace_back(Txid::FromUint256(uint256::ZERO), i);
     }
 }
 
@@ -33,7 +35,9 @@ void initialize_miner()
 FUZZ_TARGET(mini_miner, .init = initialize_miner)
 {
     FuzzedDataProvider fuzzed_data_provider{buffer.data(), buffer.size()};
-    CTxMemPool pool{CTxMemPool::Options{}};
+    bilingual_str error;
+    CTxMemPool pool{CTxMemPool::Options{}, error};
+    Assert(error.empty());
     std::vector<COutPoint> outpoints;
     std::deque<COutPoint> available_coins = g_available_coins;
     LOCK2(::cs_main, pool.cs);
@@ -45,11 +49,11 @@ FUZZ_TARGET(mini_miner, .init = initialize_miner)
         const size_t num_outputs = fuzzed_data_provider.ConsumeIntegralInRange<size_t>(1, 50);
         for (size_t n{0}; n < num_inputs; ++n) {
             auto prevout = available_coins.front();
-            mtx.vin.push_back(CTxIn(prevout, CScript()));
+            mtx.vin.emplace_back(prevout, CScript());
             available_coins.pop_front();
         }
         for (uint32_t n{0}; n < num_outputs; ++n) {
-            mtx.vout.push_back(CTxOut(100, P2WSH_OP_TRUE));
+            mtx.vout.emplace_back(100, P2WSH_OP_TRUE);
         }
         CTransactionRef tx = MakeTransactionRef(mtx);
         TestMemPoolEntryHelper entry;
@@ -60,14 +64,14 @@ FUZZ_TARGET(mini_miner, .init = initialize_miner)
         // All outputs are available to spend
         for (uint32_t n{0}; n < num_outputs; ++n) {
             if (fuzzed_data_provider.ConsumeBool()) {
-                available_coins.push_back(COutPoint{tx->GetHash(), n});
+                available_coins.emplace_back(tx->GetHash(), n);
             }
         }
 
         if (fuzzed_data_provider.ConsumeBool() && !tx->vout.empty()) {
             // Add outpoint from this tx (may or not be spent by a later tx)
-            outpoints.push_back(COutPoint{tx->GetHash(),
-                                          (uint32_t)fuzzed_data_provider.ConsumeIntegralInRange<size_t>(0, tx->vout.size())});
+            outpoints.emplace_back(tx->GetHash(),
+                                          (uint32_t)fuzzed_data_provider.ConsumeIntegralInRange<size_t>(0, tx->vout.size()));
         } else {
             // Add some random outpoint (will be interpreted as confirmed or not yet submitted
             // to mempool).
@@ -109,7 +113,9 @@ FUZZ_TARGET(mini_miner, .init = initialize_miner)
 FUZZ_TARGET(mini_miner_selection, .init = initialize_miner)
 {
     FuzzedDataProvider fuzzed_data_provider{buffer.data(), buffer.size()};
-    CTxMemPool pool{CTxMemPool::Options{}};
+    bilingual_str error;
+    CTxMemPool pool{CTxMemPool::Options{}, error};
+    Assert(error.empty());
     // Make a copy to preserve determinism.
     std::deque<COutPoint> available_coins = g_available_coins;
     std::vector<CTransactionRef> transactions;
@@ -123,11 +129,11 @@ FUZZ_TARGET(mini_miner_selection, .init = initialize_miner)
         const size_t num_outputs = fuzzed_data_provider.ConsumeIntegralInRange<size_t>(2, 5);
         for (size_t n{0}; n < num_inputs; ++n) {
             auto prevout = available_coins.at(0);
-            mtx.vin.push_back(CTxIn(prevout, CScript()));
+            mtx.vin.emplace_back(prevout, CScript());
             available_coins.pop_front();
         }
         for (uint32_t n{0}; n < num_outputs; ++n) {
-            mtx.vout.push_back(CTxOut(100, P2WSH_OP_TRUE));
+            mtx.vout.emplace_back(100, P2WSH_OP_TRUE);
         }
         CTransactionRef tx = MakeTransactionRef(mtx);
 
@@ -136,9 +142,9 @@ FUZZ_TARGET(mini_miner_selection, .init = initialize_miner)
         // MiniMiner interprets spent coins as to-be-replaced and excludes them.
         for (uint32_t n{0}; n < num_outputs - 1; ++n) {
             if (fuzzed_data_provider.ConsumeBool()) {
-                available_coins.push_front(COutPoint{tx->GetHash(), n});
+                available_coins.emplace_front(tx->GetHash(), n);
             } else {
-                available_coins.push_back(COutPoint{tx->GetHash(), n});
+                available_coins.emplace_back(tx->GetHash(), n);
             }
         }
 
