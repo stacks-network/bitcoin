@@ -25,10 +25,6 @@ def cleanup(func):
     return wrapper
 
 class SendallTest(BitcoinTestFramework):
-    # Setup and helpers
-    def add_options(self, parser):
-        self.add_wallet_options(parser)
-
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
@@ -303,10 +299,7 @@ class SendallTest(BitcoinTestFramework):
             "desc": utxo["desc"],
             "timestamp": 0,
         }]
-        if self.options.descriptors:
-            watchonly.importdescriptors(import_req)
-        else:
-            watchonly.importmulti(import_req)
+        watchonly.importdescriptors(import_req)
 
         sendall_tx_receipt = watchonly.sendall(recipients=[self.remainder_target], inputs=[utxo])
         psbt = sendall_tx_receipt["psbt"]
@@ -531,4 +524,4 @@ class SendallTest(BitcoinTestFramework):
         self.sendall_fails_with_transaction_too_large()
 
 if __name__ == '__main__':
-    SendallTest().main()
+    SendallTest(__file__).main()

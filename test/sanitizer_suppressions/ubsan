@@ -17,6 +17,7 @@ unsigned-integer-overflow:test/fuzz/crypto_diff_fuzz_chacha20.cpp
 implicit-integer-sign-change:*/include/boost/
 implicit-integer-sign-change:*/include/c++/
 implicit-integer-sign-change:*/new_allocator.h
+implicit-integer-sign-change:*/qarraydata.h
 implicit-integer-sign-change:crc32c/
 implicit-integer-sign-change:minisketch/
 implicit-integer-sign-change:secp256k1/
@@ -51,19 +52,15 @@ unsigned-integer-overflow:CCoinsViewCache::Uncache
 unsigned-integer-overflow:CompressAmount
 unsigned-integer-overflow:DecompressAmount
 unsigned-integer-overflow:crypto/
-unsigned-integer-overflow:getchaintxstats*
 unsigned-integer-overflow:MurmurHash3
-unsigned-integer-overflow:CBlockPolicyEstimator::processBlockTx
 unsigned-integer-overflow:TxConfirmStats::EstimateMedianVal
 unsigned-integer-overflow:prevector.h
-unsigned-integer-overflow:EvalScript
-unsigned-integer-overflow:xoroshiro128plusplus.h
+unsigned-integer-overflow:InsecureRandomContext::rand64
+unsigned-integer-overflow:InsecureRandomContext::SplitMix64
 unsigned-integer-overflow:bitset_detail::PopCount
-implicit-integer-sign-change:CBlockPolicyEstimator::processBlockTx
 implicit-integer-sign-change:SetStdinEcho
 implicit-integer-sign-change:compressor.h
 implicit-integer-sign-change:crypto/
-implicit-integer-sign-change:getchaintxstats*
 implicit-integer-sign-change:TxConfirmStats::removeTx
 implicit-integer-sign-change:prevector.h
 implicit-integer-sign-change:verify_flags
@@ -75,4 +72,6 @@ shift-base:arith_uint256.cpp
 shift-base:crypto/
 shift-base:streams.h
 shift-base:FormatHDKeypath
-shift-base:xoroshiro128plusplus.h
+shift-base:InsecureRandomContext::rand64
+shift-base:RandomMixin<*>::randbits
+shift-base:RandomMixin<*>::randbits<*>

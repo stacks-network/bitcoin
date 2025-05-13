@@ -19,9 +19,6 @@ namespace
 
 typedef std::vector<uint8_t> data;
 
-/** The Bech32 and Bech32m checksum size */
-constexpr size_t CHECKSUM_SIZE = 6;
-
 /** The Bech32 and Bech32m character set for encoding. */
 const char* CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
 
@@ -363,13 +360,13 @@ std::string Encode(Encoding encoding, const std::string& hrp, const data& values
     // to return a lowercase Bech32/Bech32m string, but if given an uppercase HRP, the
     // result will always be invalid.
     for (const char& c : hrp) assert(c < 'A' || c > 'Z');
-    data checksum = CreateChecksum(encoding, hrp, values);
-    data combined = Cat(values, checksum);
-    std::string ret = hrp + '1';
-    ret.reserve(ret.size() + combined.size());
-    for (const auto c : combined) {
-        ret += CHARSET[c];
-    }
+
+    std::string ret;
+    ret.reserve(hrp.size() + 1 + values.size() + CHECKSUM_SIZE);
+    ret += hrp;
+    ret += SEPARATOR;
+    for (const uint8_t& i : values) ret += CHARSET[i];
+    for (const uint8_t& i : CreateChecksum(encoding, hrp, values)) ret += CHARSET[i];
     return ret;
 }
 
@@ -377,7 +374,7 @@ std::string Encode(Encoding encoding, const std::string& hrp, const data& values
 DecodeResult Decode(const std::string& str, CharLimit limit) {
     std::vector<int> errors;
     if (!CheckCharacters(str, errors)) return {};
-    size_t pos = str.rfind('1');
+    size_t pos = str.rfind(SEPARATOR);
     if (str.size() > limit) return {};
     if (pos == str.npos || pos == 0 || pos + CHECKSUM_SIZE >= str.size()) {
         return {};
@@ -393,6 +390,7 @@ DecodeResult Decode(const std::string& str, CharLimit limit) {
         values[i] = rev;
     }
     std::string hrp;
+    hrp.reserve(pos);
     for (size_t i = 0; i < pos; ++i) {
         hrp += LowerCase(str[i]);
     }
@@ -415,7 +413,7 @@ std::pair<std::string, std::vector<int>> LocateErrors(const std::string& str, Ch
         return std::make_pair("Invalid character or mixed case", std::move(error_locations));
     }
 
-    size_t pos = str.rfind('1');
+    size_t pos = str.rfind(SEPARATOR);
     if (pos == str.npos) {
         return std::make_pair("Missing separator", std::vector<int>{});
     }
@@ -425,6 +423,7 @@ std::pair<std::string, std::vector<int>> LocateErrors(const std::string& str, Ch
     }
 
     std::string hrp;
+    hrp.reserve(pos);
     for (size_t i = 0; i < pos; ++i) {
         hrp += LowerCase(str[i]);
     }

@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2022 The Bitcoin Core developers
+// Copyright (c) 2021-present The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -13,6 +13,8 @@
 #include <test/fuzz/util.h>
 #include <util/strencodings.h>
 
+#include <algorithm>
+
 namespace {
 
 using Fragment = miniscript::Fragment;
@@ -20,7 +22,7 @@ using NodeRef = miniscript::NodeRef<CPubKey>;
 using Node = miniscript::Node<CPubKey>;
 using Type = miniscript::Type;
 using MsCtx = miniscript::MiniscriptContext;
-using miniscript::operator"" _mst;
+using miniscript::operator""_mst;
 
 //! Some pre-computed data for more efficient string roundtrips and to simulate challenges.
 struct TestData {
@@ -47,9 +49,9 @@ struct TestData {
     void Init() {
         unsigned char keydata[32] = {1};
         // All our signatures sign (and are required to sign) this constant message.
-        auto const MESSAGE_HASH{uint256S("f5cd94e18b6fe77dd7aca9e35c2b0c9cbd86356c80a71065")};
+        constexpr uint256 MESSAGE_HASH{"0000000000000000f5cd94e18b6fe77dd7aca9e35c2b0c9cbd86356c80a71065"};
         // We don't pass additional randomness when creating a schnorr signature.
-        auto const EMPTY_AUX{uint256S("")};
+        const auto EMPTY_AUX{uint256::ZERO};
 
         for (size_t i = 0; i < 256; i++) {
             keydata[31] = i;
@@ -127,7 +129,7 @@ struct ParserContext {
         auto it = TEST_DATA.dummy_key_idx_map.find(key);
         if (it == TEST_DATA.dummy_key_idx_map.end()) return {};
         uint8_t idx = it->second;
-        return HexStr(Span{&idx, 1});
+        return HexStr(std::span{&idx, 1});
     }
 
     std::vector<unsigned char> ToPKBytes(const Key& key) const {
@@ -288,12 +290,12 @@ const struct CheckerContext: BaseSignatureChecker {
         if (it == TEST_DATA.dummy_sigs.end()) return false;
         return it->second.first == sig;
     }
-    bool CheckSchnorrSignature(Span<const unsigned char> sig, Span<const unsigned char> pubkey, SigVersion,
+    bool CheckSchnorrSignature(std::span<const unsigned char> sig, std::span<const unsigned char> pubkey, SigVersion,
                                ScriptExecutionData&, ScriptError*) const override {
         XOnlyPubKey pk{pubkey};
         auto it = TEST_DATA.schnorr_sigs.find(pk);
         if (it == TEST_DATA.schnorr_sigs.end()) return false;
-        return it->second.first == sig;
+        return std::ranges::equal(it->second.first, sig);
     }
     bool CheckLockTime(const CScriptNum& nLockTime) const override { return nLockTime.GetInt64() & 1; }
     bool CheckSequence(const CScriptNum& nSequence) const override { return nSequence.GetInt64() & 1; }

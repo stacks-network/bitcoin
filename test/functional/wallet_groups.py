@@ -16,9 +16,6 @@ from test_framework.util import (
 
 
 class WalletGroupTest(BitcoinTestFramework):
-    def add_options(self, parser):
-        self.add_wallet_options(parser)
-
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 5
@@ -182,4 +179,4 @@ class WalletGroupTest(BitcoinTestFramework):
 
 
 if __name__ == '__main__':
-    WalletGroupTest().main()
+    WalletGroupTest(__file__).main()

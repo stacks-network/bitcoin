@@ -37,12 +37,12 @@ enum class ConnectionDirection {
     Both = (In | Out),
 };
 static inline ConnectionDirection& operator|=(ConnectionDirection& a, ConnectionDirection b) {
-    using underlying = typename std::underlying_type<ConnectionDirection>::type;
+    using underlying = std::underlying_type_t<ConnectionDirection>;
     a = ConnectionDirection(underlying(a) | underlying(b));
     return a;
 }
 static inline bool operator&(ConnectionDirection a, ConnectionDirection b) {
-    using underlying = typename std::underlying_type<ConnectionDirection>::type;
+    using underlying = std::underlying_type_t<ConnectionDirection>;
     return (underlying(a) & underlying(b));
 }
 
@@ -58,14 +58,14 @@ bool IsUnixSocketPath(const std::string& name);
 class Proxy
 {
 public:
-    Proxy() : m_is_unix_socket(false), m_randomize_credentials(false) {}
-    explicit Proxy(const CService& _proxy, bool _randomize_credentials = false) : proxy(_proxy), m_is_unix_socket(false), m_randomize_credentials(_randomize_credentials) {}
-    explicit Proxy(const std::string path, bool _randomize_credentials = false) : m_unix_socket_path(path), m_is_unix_socket(true), m_randomize_credentials(_randomize_credentials) {}
+    Proxy() : m_is_unix_socket(false), m_tor_stream_isolation(false) {}
+    explicit Proxy(const CService& _proxy, bool tor_stream_isolation = false) : proxy(_proxy), m_is_unix_socket(false), m_tor_stream_isolation(tor_stream_isolation) {}
+    explicit Proxy(const std::string path, bool tor_stream_isolation = false) : m_unix_socket_path(path), m_is_unix_socket(true), m_tor_stream_isolation(tor_stream_isolation) {}
 
     CService proxy;
     std::string m_unix_socket_path;
     bool m_is_unix_socket;
-    bool m_randomize_credentials;
+    bool m_tor_stream_isolation;
 
     bool IsValid() const
     {
@@ -132,6 +132,13 @@ public:
     {
         AssertLockNotHeld(m_mutex);
         return Contains(addr.GetNetwork());
+    }
+
+    [[nodiscard]] std::unordered_set<Network> All() const EXCLUSIVE_LOCKS_REQUIRED(!m_mutex)
+    {
+        AssertLockNotHeld(m_mutex);
+        LOCK(m_mutex);
+        return m_reachable;
     }
 
 private:
@@ -262,16 +269,18 @@ CService LookupNumeric(const std::string& name, uint16_t portDefault = 0, DNSLoo
 CSubNet LookupSubNet(const std::string& subnet_str);
 
 /**
- * Create a TCP or UNIX socket in the given address family.
- * @param[in] address_family to use for the socket.
+ * Create a real socket from the operating system.
+ * @param[in] domain Communications domain, first argument to the socket(2) syscall.
+ * @param[in] type Type of the socket, second argument to the socket(2) syscall.
+ * @param[in] protocol The particular protocol to be used with the socket, third argument to the socket(2) syscall.
  * @return pointer to the created Sock object or unique_ptr that owns nothing in case of failure
  */
-std::unique_ptr<Sock> CreateSockOS(sa_family_t address_family);
+std::unique_ptr<Sock> CreateSockOS(int domain, int type, int protocol);
 
 /**
  * Socket factory. Defaults to `CreateSockOS()`, but can be overridden by unit tests.
  */
-extern std::function<std::unique_ptr<Sock>(const sa_family_t&)> CreateSock;
+extern std::function<std::unique_ptr<Sock>(int, int, int)> CreateSock;
 
 /**
  * Create a socket and try to connect to the specified service.

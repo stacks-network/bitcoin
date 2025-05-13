@@ -17,9 +17,7 @@ from .messages import (
     CTxOut,
     hash256,
     ser_string,
-    ser_uint256,
     sha256,
-    uint256_from_str,
 )
 
 from .crypto.ripemd160 import ripemd160
@@ -711,41 +709,42 @@ def sign_input_segwitv0(tx, input_index, input_scriptpubkey, input_amount, privk
 # Note that this corresponds to sigversion == 1 in EvalScript, which is used
 # for version 0 witnesses.
 def SegwitV0SignatureMsg(script, txTo, inIdx, hashtype, amount):
+    ZERO_HASH = bytes([0]*32)
 
-    hashPrevouts = 0
-    hashSequence = 0
-    hashOutputs = 0
+    hashPrevouts = ZERO_HASH
+    hashSequence = ZERO_HASH
+    hashOutputs = ZERO_HASH
 
     if not (hashtype & SIGHASH_ANYONECANPAY):
         serialize_prevouts = bytes()
         for i in txTo.vin:
             serialize_prevouts += i.prevout.serialize()
-        hashPrevouts = uint256_from_str(hash256(serialize_prevouts))
+        hashPrevouts = hash256(serialize_prevouts)
 
     if (not (hashtype & SIGHASH_ANYONECANPAY) and (hashtype & 0x1f) != SIGHASH_SINGLE and (hashtype & 0x1f) != SIGHASH_NONE):
         serialize_sequence = bytes()
         for i in txTo.vin:
             serialize_sequence += i.nSequence.to_bytes(4, "little")
-        hashSequence = uint256_from_str(hash256(serialize_sequence))
+        hashSequence = hash256(serialize_sequence)
 
     if ((hashtype & 0x1f) != SIGHASH_SINGLE and (hashtype & 0x1f) != SIGHASH_NONE):
         serialize_outputs = bytes()
         for o in txTo.vout:
             serialize_outputs += o.serialize()
-        hashOutputs = uint256_from_str(hash256(serialize_outputs))
+        hashOutputs = hash256(serialize_outputs)
     elif ((hashtype & 0x1f) == SIGHASH_SINGLE and inIdx < len(txTo.vout)):
         serialize_outputs = txTo.vout[inIdx].serialize()
-        hashOutputs = uint256_from_str(hash256(serialize_outputs))
+        hashOutputs = hash256(serialize_outputs)
 
     ss = bytes()
     ss += txTo.version.to_bytes(4, "little")
-    ss += ser_uint256(hashPrevouts)
-    ss += ser_uint256(hashSequence)
+    ss += hashPrevouts
+    ss += hashSequence
     ss += txTo.vin[inIdx].prevout.serialize()
     ss += ser_string(script)
     ss += amount.to_bytes(8, "little", signed=True)
     ss += txTo.vin[inIdx].nSequence.to_bytes(4, "little")
-    ss += ser_uint256(hashOutputs)
+    ss += hashOutputs
     ss += txTo.nLockTime.to_bytes(4, "little")
     ss += hashtype.to_bytes(4, "little")
     return ss
@@ -810,7 +809,7 @@ def BIP341_sha_sequences(txTo):
 def BIP341_sha_outputs(txTo):
     return sha256(b"".join(o.serialize() for o in txTo.vout))
 
-def TaprootSignatureMsg(txTo, spent_utxos, hash_type, input_index = 0, scriptpath = False, script = CScript(), codeseparator_pos = -1, annex = None, leaf_ver = LEAF_VERSION_TAPSCRIPT):
+def TaprootSignatureMsg(txTo, spent_utxos, hash_type, input_index=0, *, scriptpath=False, leaf_script=None, codeseparator_pos=-1, annex=None, leaf_ver=LEAF_VERSION_TAPSCRIPT):
     assert (len(txTo.vin) == len(spent_utxos))
     assert (input_index < len(txTo.vin))
     out_type = SIGHASH_ALL if hash_type == 0 else hash_type & 3
@@ -829,7 +828,7 @@ def TaprootSignatureMsg(txTo, spent_utxos, hash_type, input_index = 0, scriptpat
     spend_type = 0
     if annex is not None:
         spend_type |= 1
-    if (scriptpath):
+    if scriptpath:
         spend_type |= 2
     ss += bytes([spend_type])
     if in_type == SIGHASH_ANYONECANPAY:
@@ -846,11 +845,11 @@ def TaprootSignatureMsg(txTo, spent_utxos, hash_type, input_index = 0, scriptpat
             ss += sha256(txTo.vout[input_index].serialize())
         else:
             ss += bytes(0 for _ in range(32))
-    if (scriptpath):
-        ss += TaggedHash("TapLeaf", bytes([leaf_ver]) + ser_string(script))
+    if scriptpath:
+        ss += TaggedHash("TapLeaf", bytes([leaf_ver]) + ser_string(leaf_script))
         ss += bytes([0])
         ss += codeseparator_pos.to_bytes(4, "little", signed=True)
-    assert len(ss) ==  175 - (in_type == SIGHASH_ANYONECANPAY) * 49 - (out_type != SIGHASH_ALL and out_type != SIGHASH_SINGLE) * 32 + (annex is not None) * 32 + scriptpath * 37
+    assert len(ss) == 175 - (in_type == SIGHASH_ANYONECANPAY) * 49 - (out_type != SIGHASH_ALL and out_type != SIGHASH_SINGLE) * 32 + (annex is not None) * 32 + scriptpath * 37
     return ss
 
 def TaprootSignatureHash(*args, **kwargs):

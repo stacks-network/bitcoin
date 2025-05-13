@@ -440,12 +440,6 @@ RPCHelpMan getbalances()
                     {RPCResult::Type::STR_AMOUNT, "immature", "balance from immature coinbase outputs"},
                     {RPCResult::Type::STR_AMOUNT, "used", /*optional=*/true, "(only present if avoid_reuse is set) balance from coins sent to addresses that were previously spent from (potentially privacy violating)"},
                 }},
-                {RPCResult::Type::OBJ, "watchonly", /*optional=*/true, "watchonly balances (not present if wallet does not watch anything)",
-                {
-                    {RPCResult::Type::STR_AMOUNT, "trusted", "trusted balance (outputs created by the wallet or confirmed outputs)"},
-                    {RPCResult::Type::STR_AMOUNT, "untrusted_pending", "untrusted pending balance (outputs created by others that are in the mempool)"},
-                    {RPCResult::Type::STR_AMOUNT, "immature", "balance from immature coinbase outputs"},
-                }},
                 RESULT_LAST_PROCESSED_BLOCK,
             }
             },
@@ -479,15 +473,6 @@ RPCHelpMan getbalances()
         }
         balances.pushKV("mine", std::move(balances_mine));
     }
-    auto spk_man = wallet.GetLegacyScriptPubKeyMan();
-    if (spk_man && spk_man->HaveWatchOnly()) {
-        UniValue balances_watchonly{UniValue::VOBJ};
-        balances_watchonly.pushKV("trusted", ValueFromAmount(bal.m_watchonly_trusted));
-        balances_watchonly.pushKV("untrusted_pending", ValueFromAmount(bal.m_watchonly_untrusted_pending));
-        balances_watchonly.pushKV("immature", ValueFromAmount(bal.m_watchonly_immature));
-        balances.pushKV("watchonly", std::move(balances_watchonly));
-    }
-
     AppendLastProcessedBlock(balances, wallet);
     return balances;
 },
@@ -530,19 +515,19 @@ RPCHelpMan listunspent()
                             {RPCResult::Type::NUM, "vout", "the vout value"},
                             {RPCResult::Type::STR, "address", /*optional=*/true, "the bitcoin address"},
                             {RPCResult::Type::STR, "label", /*optional=*/true, "The associated label, or \"\" for the default label"},
-                            {RPCResult::Type::STR, "scriptPubKey", "the script key"},
+                            {RPCResult::Type::STR, "scriptPubKey", "the output script"},
                             {RPCResult::Type::STR_AMOUNT, "amount", "the transaction output amount in " + CURRENCY_UNIT},
                             {RPCResult::Type::NUM, "confirmations", "The number of confirmations"},
                             {RPCResult::Type::NUM, "ancestorcount", /*optional=*/true, "The number of in-mempool ancestor transactions, including this one (if transaction is in the mempool)"},
                             {RPCResult::Type::NUM, "ancestorsize", /*optional=*/true, "The virtual transaction size of in-mempool ancestors, including this one (if transaction is in the mempool)"},
                             {RPCResult::Type::STR_AMOUNT, "ancestorfees", /*optional=*/true, "The total fees of in-mempool ancestors (including this one) with fee deltas used for mining priority in " + CURRENCY_ATOM + " (if transaction is in the mempool)"},
-                            {RPCResult::Type::STR_HEX, "redeemScript", /*optional=*/true, "The redeemScript if scriptPubKey is P2SH"},
-                            {RPCResult::Type::STR, "witnessScript", /*optional=*/true, "witnessScript if the scriptPubKey is P2WSH or P2SH-P2WSH"},
+                            {RPCResult::Type::STR_HEX, "redeemScript", /*optional=*/true, "The redeem script if the output script is P2SH"},
+                            {RPCResult::Type::STR, "witnessScript", /*optional=*/true, "witness script if the output script is P2WSH or P2SH-P2WSH"},
                             {RPCResult::Type::BOOL, "spendable", "Whether we have the private keys to spend this output"},
                             {RPCResult::Type::BOOL, "solvable", "Whether we know how to spend this output, ignoring the lack of keys"},
                             {RPCResult::Type::BOOL, "reused", /*optional=*/true, "(only present if avoid_reuse is set) Whether this output is reused/dirty (sent to an address that was previously spent from)"},
                             {RPCResult::Type::STR, "desc", /*optional=*/true, "(only when solvable) A descriptor for spending this output"},
-                            {RPCResult::Type::ARR, "parent_descs", /*optional=*/false, "List of parent descriptors for the scriptPubKey of this coin.", {
+                            {RPCResult::Type::ARR, "parent_descs", /*optional=*/false, "List of parent descriptors for the output script of this coin.", {
                                 {RPCResult::Type::STR, "desc", "The descriptor string."},
                             }},
                             {RPCResult::Type::BOOL, "safe", "Whether this output is considered safe to spend. Unconfirmed transactions\n"

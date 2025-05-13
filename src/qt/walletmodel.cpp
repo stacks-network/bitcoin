@@ -19,6 +19,7 @@
 #include <interfaces/node.h>
 #include <key_io.h>
 #include <node/interface_ui.h>
+#include <node/types.h>
 #include <psbt.h>
 #include <util/translation.h>
 #include <wallet/coincontrol.h>
@@ -44,7 +45,6 @@ WalletModel::WalletModel(std::unique_ptr<interfaces::Wallet> wallet, ClientModel
     optionsModel(client_model.getOptionsModel()),
     timer(new QTimer(this))
 {
-    fHaveWatchOnly = m_wallet->haveWatchOnly();
     addressTableModel = new AddressTableModel(this);
     transactionTableModel = new TransactionTableModel(platformStyle, this);
     recentRequestsTableModel = new RecentRequestsTableModel(this);
@@ -138,12 +138,6 @@ void WalletModel::updateAddressBook(const QString &address, const QString &label
 {
     if(addressTableModel)
         addressTableModel->updateEntry(address, label, isMine, purpose, status);
-}
-
-void WalletModel::updateWatchOnlyFlag(bool fHaveWatchonly)
-{
-    fHaveWatchOnly = fHaveWatchonly;
-    Q_EMIT notifyWatchonlyChanged(fHaveWatchonly);
 }
 
 bool WalletModel::validateAddress(const QString& address) const
@@ -404,13 +398,6 @@ static void ShowProgress(WalletModel *walletmodel, const std::string &title, int
     assert(invoked);
 }
 
-static void NotifyWatchonlyChanged(WalletModel *walletmodel, bool fHaveWatchonly)
-{
-    bool invoked = QMetaObject::invokeMethod(walletmodel, "updateWatchOnlyFlag", Qt::QueuedConnection,
-                              Q_ARG(bool, fHaveWatchonly));
-    assert(invoked);
-}
-
 static void NotifyCanGetAddressesChanged(WalletModel* walletmodel)
 {
     bool invoked = QMetaObject::invokeMethod(walletmodel, "canGetAddressesChanged");
@@ -425,7 +412,6 @@ void WalletModel::subscribeToCoreSignals()
     m_handler_address_book_changed = m_wallet->handleAddressBookChanged(std::bind(NotifyAddressBookChanged, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));
     m_handler_transaction_changed = m_wallet->handleTransactionChanged(std::bind(NotifyTransactionChanged, this, std::placeholders::_1, std::placeholders::_2));
     m_handler_show_progress = m_wallet->handleShowProgress(std::bind(ShowProgress, this, std::placeholders::_1, std::placeholders::_2));
-    m_handler_watch_only_changed = m_wallet->handleWatchOnlyChanged(std::bind(NotifyWatchonlyChanged, this, std::placeholders::_1));
     m_handler_can_get_addrs_changed = m_wallet->handleCanGetAddressesChanged(std::bind(NotifyCanGetAddressesChanged, this));
 }
 
@@ -437,7 +423,6 @@ void WalletModel::unsubscribeFromCoreSignals()
     m_handler_address_book_changed->disconnect();
     m_handler_transaction_changed->disconnect();
     m_handler_show_progress->disconnect();
-    m_handler_watch_only_changed->disconnect();
     m_handler_can_get_addrs_changed->disconnect();
 }
 
@@ -534,8 +519,8 @@ bool WalletModel::bumpFee(uint256 hash, uint256& new_hash)
         // "Create Unsigned" clicked
         PartiallySignedTransaction psbtx(mtx);
         bool complete = false;
-        const TransactionError err = wallet().fillPSBT(SIGHASH_ALL, /*sign=*/false, /*bip32derivs=*/true, nullptr, psbtx, complete);
-        if (err != TransactionError::OK || complete) {
+        const auto err{wallet().fillPSBT(SIGHASH_ALL, /*sign=*/false, /*bip32derivs=*/true, nullptr, psbtx, complete)};
+        if (err || complete) {
             QMessageBox::critical(nullptr, tr("Fee bump error"), tr("Can't draft transaction."));
             return false;
         }
@@ -593,8 +578,7 @@ QString WalletModel::getWalletName() const
 
 QString WalletModel::getDisplayName() const
 {
-    const QString name = getWalletName();
-    return name.isEmpty() ? "["+tr("default wallet")+"]" : name;
+    return GUIUtil::WalletDisplayName(getWalletName());
 }
 
 bool WalletModel::isMultiwallet() const

@@ -1,14 +1,14 @@
-// Copyright (c) 2009-2022 The Bitcoin Core developers
+// Copyright (c) 2009-present The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <psbt.h>
 
+#include <node/types.h>
 #include <policy/policy.h>
 #include <script/signingprovider.h>
 #include <util/check.h>
 #include <util/strencodings.h>
-
 
 PartiallySignedTransaction::PartiallySignedTransaction(const CMutableTransaction& tx) : tx(tx)
 {
@@ -508,17 +508,17 @@ bool FinalizeAndExtractPSBT(PartiallySignedTransaction& psbtx, CMutableTransacti
     return true;
 }
 
-TransactionError CombinePSBTs(PartiallySignedTransaction& out, const std::vector<PartiallySignedTransaction>& psbtxs)
+bool CombinePSBTs(PartiallySignedTransaction& out, const std::vector<PartiallySignedTransaction>& psbtxs)
 {
     out = psbtxs[0]; // Copy the first one
 
     // Merge
     for (auto it = std::next(psbtxs.begin()); it != psbtxs.end(); ++it) {
         if (!out.Merge(*it)) {
-            return TransactionError::PSBT_MISMATCH;
+            return false;
         }
     }
-    return TransactionError::OK;
+    return true;
 }
 
 std::string PSBTRoleName(PSBTRole role) {
@@ -543,7 +543,7 @@ bool DecodeBase64PSBT(PartiallySignedTransaction& psbt, const std::string& base6
     return DecodeRawPSBT(psbt, MakeByteSpan(*tx_data), error);
 }
 
-bool DecodeRawPSBT(PartiallySignedTransaction& psbt, Span<const std::byte> tx_data, std::string& error)
+bool DecodeRawPSBT(PartiallySignedTransaction& psbt, std::span<const std::byte> tx_data, std::string& error)
 {
     DataStream ss_data{tx_data};
     try {

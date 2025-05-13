@@ -21,9 +21,6 @@ from test_framework.util import (
 
 
 class AbandonConflictTest(BitcoinTestFramework):
-    def add_options(self, parser):
-        self.add_wallet_options(parser)
-
     def set_test_params(self):
         self.num_nodes = 2
         self.extra_args = [["-minrelaytxfee=0.00001"], []]
@@ -45,6 +42,10 @@ class AbandonConflictTest(BitcoinTestFramework):
         txB = alice.sendtoaddress(alice.getnewaddress(), Decimal("10"))
         txC = alice.sendtoaddress(alice.getnewaddress(), Decimal("10"))
         self.sync_mempools()
+
+        # Can not abandon transaction in mempool
+        assert_raises_rpc_error(-5, 'Transaction not eligible for abandonment', lambda: alice.abandontransaction(txid=txA))
+
         self.generate(self.nodes[1], 1)
 
         # Can not abandon non-wallet transaction
@@ -241,4 +242,4 @@ class AbandonConflictTest(BitcoinTestFramework):
         assert_equal(newbalance, balance - Decimal("20"))
 
 if __name__ == '__main__':
-    AbandonConflictTest().main()
+    AbandonConflictTest(__file__).main()

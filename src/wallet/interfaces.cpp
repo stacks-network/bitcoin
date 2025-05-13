@@ -8,6 +8,7 @@
 #include <consensus/amount.h>
 #include <interfaces/chain.h>
 #include <interfaces/handler.h>
+#include <node/types.h>
 #include <policy/fees.h>
 #include <primitives/transaction.h>
 #include <rpc/server.h>
@@ -34,6 +35,7 @@
 #include <utility>
 #include <vector>
 
+using common::PSBTError;
 using interfaces::Chain;
 using interfaces::FoundBlock;
 using interfaces::Handler;
@@ -173,14 +175,6 @@ public:
         LOCK(m_wallet->cs_wallet);
         return m_wallet->IsMine(dest) & ISMINE_SPENDABLE;
     }
-    bool haveWatchOnly() override
-    {
-        auto spk_man = m_wallet->GetLegacyScriptPubKeyMan();
-        if (spk_man) {
-            return spk_man->HaveWatchOnly();
-        }
-        return false;
-    };
     bool setAddressBook(const CTxDestination& dest, const std::string& name, const std::optional<AddressPurpose>& purpose) override
     {
         return m_wallet->SetAddressBook(dest, name, purpose);
@@ -389,7 +383,7 @@ public:
         }
         return {};
     }
-    TransactionError fillPSBT(int sighash_type,
+    std::optional<PSBTError> fillPSBT(int sighash_type,
         bool sign,
         bool bip32derivs,
         size_t* n_signed,
@@ -405,12 +399,7 @@ public:
         result.balance = bal.m_mine_trusted;
         result.unconfirmed_balance = bal.m_mine_untrusted_pending;
         result.immature_balance = bal.m_mine_immature;
-        result.have_watch_only = haveWatchOnly();
-        if (result.have_watch_only) {
-            result.watch_only_balance = bal.m_watchonly_trusted;
-            result.unconfirmed_watch_only_balance = bal.m_watchonly_untrusted_pending;
-            result.immature_watch_only_balance = bal.m_watchonly_immature;
-        }
+        result.have_watch_only = false;
         return result;
     }
     bool tryGetBalances(WalletBalances& balances, uint256& block_hash) override
@@ -514,7 +503,6 @@ public:
     bool hasExternalSigner() override { return m_wallet->IsWalletFlagSet(WALLET_FLAG_EXTERNAL_SIGNER); }
     bool privateKeysDisabled() override { return m_wallet->IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS); }
     bool taprootEnabled() override {
-        if (m_wallet->IsLegacy()) return false;
         auto spk_man = m_wallet->GetScriptPubKeyMan(OutputType::BECH32M, /*internal=*/false);
         return spk_man != nullptr;
     }
@@ -524,7 +512,6 @@ public:
     {
         RemoveWallet(m_context, m_wallet, /*load_on_start=*/false);
     }
-    bool isLegacy() override { return m_wallet->IsLegacy(); }
     std::unique_ptr<Handler> handleUnload(UnloadFn fn) override
     {
         return MakeSignalHandler(m_wallet->NotifyUnload.connect(fn));
@@ -547,10 +534,6 @@ public:
     {
         return MakeSignalHandler(m_wallet->NotifyTransactionChanged.connect(
             [fn](const uint256& txid, ChangeType status) { fn(txid, status); }));
-    }
-    std::unique_ptr<Handler> handleWatchOnlyChanged(WatchOnlyChangedFn fn) override
-    {
-        return MakeSignalHandler(m_wallet->NotifyWatchonlyChanged.connect(fn));
     }
     std::unique_ptr<Handler> handleCanGetAddressesChanged(CanGetAddressesChangedFn fn) override
     {
@@ -591,7 +574,6 @@ public:
         m_context.scheduler = &scheduler;
         return StartWallets(m_context);
     }
-    void flush() override { return FlushWallets(m_context); }
     void stop() override { return StopWallets(m_context); }
     void setMockTime(int64_t time) override { return SetMockTime(time); }
     void schedulerMockForward(std::chrono::seconds delta) override { Assert(m_context.scheduler)->MockForward(delta); }
@@ -650,15 +632,30 @@ public:
         };
         return out;
     }
+    bool isEncrypted(const std::string& wallet_name) override
+    {
+        auto wallets{GetWallets(m_context)};
+        auto it = std::find_if(wallets.begin(), wallets.end(), [&](std::shared_ptr<CWallet> w){ return w->GetName() == wallet_name; });
+        if (it != wallets.end()) return (*it)->IsCrypted();
+
+        // Unloaded wallet, read db
+        DatabaseOptions options;
+        options.require_existing = true;
+        DatabaseStatus status;
+        bilingual_str error;
+        auto db = MakeWalletDatabase(wallet_name, options, status, error);
+        if (!db) return false;
+        return WalletBatch(*db).IsEncrypted();
+    }
     std::string getWalletDir() override
     {
         return fs::PathToString(GetWalletDir());
     }
-    std::vector<std::string> listWalletDir() override
+    std::vector<std::pair<std::string, std::string>> listWalletDir() override
     {
-        std::vector<std::string> paths;
-        for (auto& path : ListDatabases(GetWalletDir())) {
-            paths.push_back(fs::PathToString(path));
+        std::vector<std::pair<std::string, std::string>> paths;
+        for (auto& [path, format] : ListDatabases(GetWalletDir())) {
+            paths.emplace_back(fs::PathToString(path), format);
         }
         return paths;
     }
